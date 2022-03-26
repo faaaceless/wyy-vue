@@ -9,26 +9,27 @@ let activeEffect,
 // 依赖的结构
 class Effect {
   private _fn: () => void
-  scheduler?: () => void
-  onStop?: () => void
-  // deps记录的是这个依赖依赖的那些target的依赖Set()
-  deps = []
-  active = true
+  public scheduler?: () => void
+  public onStop?: () => void
+  // deps记录的是被这个依赖, 依赖的那些target的dep
+  public deps: any = []
+  public active: boolean = true
   constructor(fn, scheduler?) {
     this._fn = fn
     this.scheduler = scheduler
   }
 
   run() {
-    // 这是为了stop后runner也能触发
+    // 这是为了stop后runner也能触发fn
     if (!this.active) {
       return this._fn()
     }
     // 把依赖给到全局变量, fn执行的时候会走get->track->收集effect
     activeEffect = this
-    // TODO:vue3这里用shouldTrack来判断是否需要收集依赖, 和直接在结束后设定activeEffect=null有什么区别?
+    // NOTE:vue3这里用shouldTrack来判断是否需要收集依赖, 和直接在结束后设定activeEffect=null有什么区别?
     // shouldTrack = true
     const res = this._fn()
+    // 设为null来打断普通get的track
     activeEffect = null
     // shouldTrack = false
     return res
@@ -38,6 +39,7 @@ class Effect {
     if (this.active) {
       cleanEffect(this)
       this.active = false
+      // onStop是stop的回调
       if (this.onStop) {
         this.onStop()
       }
@@ -45,8 +47,8 @@ class Effect {
   }
 }
 
-function cleanEffect(effect) {
-  // 从所有记录的依赖Set()中删除它
+function cleanEffect(effect: Effect) {
+  // 从它依赖的所有target.key记录的依赖dep中删除它
   effect.deps.forEach((dep: any) => {
     dep.delete(effect)
   })
@@ -56,8 +58,7 @@ function cleanEffect(effect) {
 
 // 记录依赖
 function track(target, key) {
-  // 如果不是通过Effect run进来的, 而是普通get访问, 就不用track
-  if (!activeEffect) return
+  if (!tracking()) return
   // if (!shouldTrack) return
 
   let depsMap = targetMap.get(target)
@@ -71,9 +72,20 @@ function track(target, key) {
     dep = new Set()
     depsMap.set(key, dep)
   }
-  // TODO: 既然判断再添加, 为什么不用Array?
+
+  trackEffect(dep)
+}
+
+function tracking() {
+  // 如果不是通过Effect->run进来的, 而是普通get访问, 就不用track
+  return activeEffect
+  // return activeEffect && shouldTrack
+}
+
+function trackEffect(dep) {
+  // NOTE: 既然判断再添加, 为什么不用Array?
   // Set.has 性能优于 Array.includes
-  if (dep.has(activeEffect)) return 
+  if (dep.has(activeEffect)) return
   dep.add(activeEffect)
   activeEffect.deps.push(dep)
 }
@@ -81,7 +93,13 @@ function track(target, key) {
 // 执行依赖
 function trigger(target, key) {
   let depsMap = targetMap.get(target)
+  // 都没对这个target进行track, depsMap是undefined
+  // if (!depsMap) return
   let dep = depsMap.get(key)
+  triggerEffects(dep)
+}
+
+function triggerEffects(dep) {
   for (let effect of dep) {
     // 有scheduler就不执行依赖
     if (effect.scheduler) {
@@ -105,9 +123,18 @@ function effect(fn, options?) {
   _effect.run()
   // 返回runner
   const runner: any = _effect.run.bind(_effect)
-  // 为了stop
+  // 让stop函数能找到runner对应的effect
   runner.effect = _effect
   return runner
 }
 
-export { effect, track, trigger, stop }
+export {
+  Effect,
+  effect,
+  track,
+  trigger,
+  stop,
+  trackEffect,
+  triggerEffects,
+  tracking
+}
