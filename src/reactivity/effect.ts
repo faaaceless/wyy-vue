@@ -94,7 +94,7 @@ function trackEffect(dep) {
 function trigger(target, key) {
   let depsMap = targetMap.get(target)
   // 都没对这个target进行track, depsMap是undefined
-  // if (!depsMap) return
+  if (!depsMap) return
   let dep = depsMap.get(key)
   triggerEffects(dep)
 }
@@ -120,7 +120,9 @@ function effect(fn, options?) {
   const _effect = new Effect(fn, options?.scheduler)
   // 把options给到effect
   Object.assign(_effect, options)
-  _effect.run()
+  // lazy option
+  if (!options?.lazy) _effect.run()
+
   // 返回runner
   const runner: any = _effect.run.bind(_effect)
   // 让stop函数能找到runner对应的effect

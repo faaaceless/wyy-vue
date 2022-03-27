@@ -53,9 +53,9 @@ function proxyRefs(objWithRef) {
 
     set(target, key, value) {
       // 如果新传入的不是ref但是之前的是ref, 希望的行为是更新之前ref的value
-      if (isRef(target[key])&&!isRef(value)) {
+      if (isRef(target[key]) && !isRef(value)) {
         return (target[key].value = value)
-      // 其他情况都可以直接取代
+        // 其他情况都可以直接取代
       } else {
         return Reflect.set(target, key, value)
       }
@@ -63,9 +63,26 @@ function proxyRefs(objWithRef) {
   })
 }
 
+// TODO: shallowRef
+function shallowRef() {
+
+}
+
+// TODO: toRef
+function toRef() {
+
+}
+
+// TODO: toRefs
+function toRefs() {
+}
+
 export {
   ref,
   isRef,
   unref,
-  proxyRefs
+  proxyRefs,
+  shallowRef,
+  toRef,
+  toRefs
 }

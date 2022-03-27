@@ -1,0 +1,6 @@
+{
+    "jestrunner.jestPath": "node_modules/jest/bin/jest.js",
+    "cSpell.words": [
+        "vnode"
+    ]
+}

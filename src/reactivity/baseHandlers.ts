@@ -1,10 +1,11 @@
 import { track, trigger } from "./effect"
-import { reactive, ReactiveFlags, readonly } from "./reactive"
+import { isReactive, reactive, ReactiveFlags, readonly } from "./reactive"
 import { isObject } from "./utils"
 
 // 优化: 反复调用的情况
 const get = createGetter(),
   set = createSetter(),
+  shallowMutableGet = createGetter(false, true),
   readonlyGet = createGetter(true),
   shallowReadonlyGet = createGetter(true, true)
 
@@ -15,6 +16,8 @@ function createGetter(isReadonly = false, shallow = false) {
     if (key === ReactiveFlags.IS_REACTIVE) return !isReadonly
     // 用于isReadonly
     if (key === ReactiveFlags.IS_READONLY) return isReadonly
+    // 用于isShallow
+    if (key === ReactiveFlags.IS_SHALLOW) return shallow
 
     const res = Reflect.get(target, key, receiver)
 
@@ -52,10 +55,13 @@ const readonlyHandlers = {
   }
 }
 
+const shallowMutableHandlers = Object.assign({}, mutableHandlers, { get: shallowMutableGet })
+
 const shallowReadonlyHandlers = Object.assign({}, readonlyHandlers, { get: shallowReadonlyGet })
 
 export {
   mutableHandlers,
   readonlyHandlers,
+  shallowMutableHandlers,
   shallowReadonlyHandlers
 }
