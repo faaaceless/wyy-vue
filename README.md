@@ -10,4 +10,10 @@ My simple implement of vue3.
 - [x] ref, isRef, unref
 - [x] computed
 
-## runtime
+## runtime-core
+
+- [x] setup Component with props
+- [x] render Element & addEvent
+- [x] $el, $props
+- [x] 
+- [x] 
