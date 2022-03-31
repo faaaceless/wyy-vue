@@ -14,6 +14,6 @@ My simple implement of vue3.
 
 - [x] setup Component with props
 - [x] render Element & addEvent
-- [x] $el, $props
-- [x] 
+- [x] $el, $props, $slots
+- [x] emit
 - [x] 

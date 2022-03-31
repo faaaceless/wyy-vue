@@ -17,6 +17,11 @@ export function createVNode(type, props?, children?) {
     vnode.shapeFlags |= ShapeFlags.ARRAY_CHILDREN
   }
 
+  // 使用插槽时, children是object, key就是具名插槽的名字
+  if (vnode.shapeFlags & ShapeFlags.STATEFUL_COMPONENT && typeof children === 'object') {
+    vnode.shapeFlags |= ShapeFlags.SLOTS_CHILDREN
+  }
+
   return vnode
 }
 

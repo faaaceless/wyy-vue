@@ -1,14 +1,21 @@
 import { shallowReadonly } from "../reactivity"
 import { initProps } from "./componentProps"
 import { PublicInstanceProxyHandlers } from "./componentPublicInstance"
+import { emit } from "./componentEmit"
+import { initSlots } from "./componentSlots"
 
 export function createComponentInstance(vnode: any) {
 
   const instance = {
     vnode,
     setupState: {},
-    props: {}
+    props: {},
+    slots: {},
+    emit: (event) => { }
   }
+
+  // instance直接作为bind的参数，无需另外传入
+  instance.emit = emit.bind(null, instance)
   return instance
 }
 // NOTE: 这页注册组件主要实现几个功能:
@@ -17,6 +24,8 @@ export function createComponentInstance(vnode: any) {
 export function setupComponent(instance: any) {
   // 把组件的props挂到组件实例上
   initProps(instance, instance.vnode.props)
+  // 把slots挂到组件实例
+  initSlots(instance, instance.vnode.children)
   setupStatefulComponent(instance)
 }
 
@@ -27,7 +36,8 @@ function setupStatefulComponent(instance: any) {
   // 执行setup
   if (setup) {
     // props可以作为setup的输入, 并且是readonly的
-    const setupRes = setup(shallowReadonly(instance.props))
+    // NOTE: 这里emit忘记传入instance.emit, 导致传入导入的emit，debug半天
+    const setupRes = setup(shallowReadonly(instance.props), { emit: instance.emit })
     handleSetupResult(setupRes, instance)
   }
 
