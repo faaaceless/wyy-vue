@@ -4,5 +4,7 @@
         "camelize",
         "tryemit",
         "vnode"
-    ]
+    ],
+    "commentTranslate.source": "Bing",
+    "commentTranslate.multiLineMerge": true
 }

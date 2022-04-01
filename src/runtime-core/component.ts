@@ -4,14 +4,15 @@ import { PublicInstanceProxyHandlers } from "./componentPublicInstance"
 import { emit } from "./componentEmit"
 import { initSlots } from "./componentSlots"
 
-export function createComponentInstance(vnode: any) {
-
+export function createComponentInstance(vnode: any, parent: any) {
   const instance = {
     vnode,
     setupState: {},
     props: {},
     slots: {},
-    emit: (event) => { }
+    provides: {},
+    parent,
+    emit: (event) => {},
   }
 
   // instance直接作为bind的参数，无需另外传入
@@ -35,9 +36,15 @@ function setupStatefulComponent(instance: any) {
   const { setup } = component
   // 执行setup
   if (setup) {
+    // 可以在setup里执行getCurrentInstance
+    setCurrentInstance(instance)
     // props可以作为setup的输入, 并且是readonly的
     // NOTE: 这里emit忘记传入instance.emit, 导致传入导入的emit，debug半天
-    const setupRes = setup(shallowReadonly(instance.props), { emit: instance.emit })
+    const setupRes = setup(shallowReadonly(instance.props), {
+      emit: instance.emit,
+    })
+
+    setCurrentInstance(null)
     handleSetupResult(setupRes, instance)
   }
 
@@ -47,8 +54,7 @@ function setupStatefulComponent(instance: any) {
 }
 
 function handleSetupResult(setupRes, instance) {
-
-  if (typeof setupRes === 'object') {
+  if (typeof setupRes === "object") {
     instance.setupState = setupRes
   }
 
@@ -63,3 +69,13 @@ function finishComponentSetup(instance: any) {
   }
 }
 
+let currentInstance: any = null
+
+export function getCurrentInstance() {
+  return currentInstance
+}
+
+// NOTE: 相比于在上边写死, 抽离出来的好处在于出问题方便跟踪, 就在这个函数打断点
+function setCurrentInstance(val: any) {
+  currentInstance = val
+}
