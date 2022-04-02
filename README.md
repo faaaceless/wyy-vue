@@ -18,4 +18,5 @@ My simple implement of vue3.
 - [x] $el, $props, $slots
 - [x] emit
 - [x] slots
-- [x] 
+- [x] provide & inject
+- [x]
