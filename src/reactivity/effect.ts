@@ -5,7 +5,6 @@ const targetMap = new WeakMap()
 let activeEffect,
   shouldTrack = true
 
-
 // 依赖的结构
 class Effect {
   private _fn: () => void
@@ -100,14 +99,23 @@ function trigger(target, key) {
 }
 
 function triggerEffects(dep) {
-  for (let effect of dep) {
+  dep.forEach((effect: Effect) => {
     // 有scheduler就不执行依赖
     if (effect.scheduler) {
       effect.scheduler()
     } else {
       effect.run()
     }
-  }
+  })
+  // FIXME: 做到runtime-core更新element的时候发现for-of遍历不了，编译问题？
+  // for (const effect of dep) {
+  //   console.log(effect)
+  //   if (effect.scheduler) {
+  //     effect.scheduler()
+  //   } else {
+  //     effect.run()
+  //   }
+  // }
 }
 
 // 删除依赖
@@ -138,5 +146,5 @@ export {
   stop,
   trackEffect,
   triggerEffects,
-  tracking
+  tracking,
 }

@@ -19,4 +19,5 @@ My simple implement of vue3.
 - [x] emit
 - [x] slots
 - [x] provide & inject
-- [x]
+- [x] custom renderer
+- [x] 

@@ -8,10 +8,11 @@ export const Foo = {
     return h("div", { class: "sayBye" }, [
       renderSlots(this.$slots, "child1", { msg }),
       foo,
-      renderSlots(this.$slots, "child2")])
+      renderSlots(this.$slots, "child2"),
+    ])
   },
 
   setup(props) {
     return {}
-  }
+  },
 }

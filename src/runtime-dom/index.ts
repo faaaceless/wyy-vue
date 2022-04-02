@@ -5,14 +5,19 @@ function createElement(type: any) {
   return document.createElement(type)
 }
 
-function patchProp(el: any, key: string, value: any) {
+function patchProp(el: any, key: string, prevVal: any, curVal: any) {
   const isEvent = (key: string) => /^on[A-Z]/.test(key)
+  // NOTE:注册事件或者attribute
   if (isEvent(key)) {
-    // NOTE:注册事件
-    el.addEventListener(key.slice(2).toLowerCase(), value)
+    el.addEventListener(key.slice(2).toLowerCase(), curVal)
   } else {
-    // 或者attribute
-    el.setAttribute(key, value)
+    // 新的prop是 undefined or null，则删除
+    if (curVal === undefined || curVal === null) {
+      el.removeAttribute(key)
+    } else {
+      el.setAttribute(key, curVal)
+    }
+    
   }
 }
 
@@ -28,6 +33,7 @@ const renderer: any = createRenderer({
 })
 
 // 再调用之前的createApp函数, 实际上就是在外面套了一层renderer, 通过这个renderer传入一些方法, 但是在js里调用方法不变
+// 整个流程是createRenderer-(options)->render-(render)->createAppAPI-(render)->createApp-(args)->render
 export function createApp(...args) {
   return renderer.createApp(...args)
 }

@@ -1,17 +1,23 @@
-import { shallowReadonly } from "../reactivity"
+import { proxyRefs, shallowReadonly } from "../reactivity"
 import { initProps } from "./componentProps"
 import { PublicInstanceProxyHandlers } from "./componentPublicInstance"
 import { emit } from "./componentEmit"
 import { initSlots } from "./componentSlots"
 
+// NOTE: 这页注册组件主要实现几个功能:
+// 1.把setup的结果挂载到组件实例上
+// 2.为实例创建代理，子dom通过代理访问组件的props, state, 和一些api
+// 2.把render方法挂载到组件实例上
 export function createComponentInstance(vnode: any, parent: any) {
   const instance = {
     vnode,
+    parent,
+    subTree: {},
     setupState: {},
     props: {},
     slots: {},
     provides: {},
-    parent,
+    isMounted: false,
     emit: (event) => {},
   }
 
@@ -19,9 +25,7 @@ export function createComponentInstance(vnode: any, parent: any) {
   instance.emit = emit.bind(null, instance)
   return instance
 }
-// NOTE: 这页注册组件主要实现几个功能:
-// 1.把setup的结果挂载到组件实例上
-// 2.把render方法挂载到组件实例上
+
 export function setupComponent(instance: any) {
   // 把组件的props挂到组件实例上
   initProps(instance, instance.vnode.props)
@@ -30,6 +34,7 @@ export function setupComponent(instance: any) {
   setupStatefulComponent(instance)
 }
 
+// 可以看出来，通过setup函数定义的东西，都是先挂到组件实例上，然后再被组件下面的dom使用的
 function setupStatefulComponent(instance: any) {
   const component = instance.vnode.type
 
@@ -55,7 +60,7 @@ function setupStatefulComponent(instance: any) {
 
 function handleSetupResult(setupRes, instance) {
   if (typeof setupRes === "object") {
-    instance.setupState = setupRes
+    instance.setupState = proxyRefs(setupRes)
   }
 
   finishComponentSetup(instance)
