@@ -20,4 +20,4 @@ My simple implement of vue3.
 - [x] slots
 - [x] provide & inject
 - [x] custom renderer
-- [x] 
+- [x] patch children
