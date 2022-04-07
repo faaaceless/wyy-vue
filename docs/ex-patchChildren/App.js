@@ -12,9 +12,9 @@ export default {
   render() {
     return h("div", { tId: 1 }, [
       h("p", {}, "主页"),
-      h(ArrayToText),
+      // h(ArrayToText),
       // h(TextToText),
-      // h(TextToArray),
+      h(TextToArray),
       // h(ArrayToArray),
     ])
   },

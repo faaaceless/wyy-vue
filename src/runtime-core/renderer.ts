@@ -9,6 +9,8 @@ export function createRenderer(options) {
     createElement: hostCreateElement,
     patchProp: hostPatchProp,
     insert: hostInsert,
+    remove: hostRemove,
+    setElementText: hostSetElementText,
   } = options
 
   function render(vnode, container) {
@@ -52,25 +54,54 @@ export function createRenderer(options) {
     if (!n1) {
       mountElement(n2, container, parentComponent)
     } else {
-      patchElement(n1, n2, container)
+      patchElement(n1, n2, container, parentComponent)
     }
   }
 
-  function patchElement(n1: any, n2: any, container: any) {
+  function patchElement(n1: any, n2: any, container: any, parentComponent: any) {
     console.log(n1, n2)
 
-    // n1经历了mountElement 而n2还没有
+    // n1经历了mountElement 而n2还没有，所以只能从n1读dom
     const el = (n2.el = n1.el)
 
     // 更新props
     const prevProps = n1.props ?? {}
     const curProps = n2.props ?? {}
+
+    patchChildren(n1, n2, el, parentComponent)
     patchProps(prevProps, curProps, el)
+  }
+
+  function patchChildren(n1: any, n2: any, el: any, parentComponent: any) {
+    const { shapeFlag: preShapeFlag } = n1
+    const { shapeFlag: curShapeFlag } = n2
+
+    if (curShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      // unmount 如果是Array to Text
+      unmountChildren(n1.children)
+      if (n1.children !== n2.children) {
+        hostSetElementText(el, n2.children)
+      }
+    } else {
+      if (preShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+        // 清空之前的文本
+        hostSetElementText(el, "")
+        // mount 新的
+        mountChildren(n2.children, el, parentComponent)
+      }
+    }
+  }
+
+  function unmountChildren(children: any) {
+    for (let i = 0; i < children.length; i++) {
+      const el = children[i].el
+      hostRemove(el)
+    }
   }
 
   function patchProps(prevProps: any, curProps: any, el: any) {
     if (prevProps === curProps) return
-    
+
     for (const key in curProps) {
       const prevProp = prevProps[key]
       const curProp = curProps[key]
