@@ -48,12 +48,13 @@ import { ref, h } from "../../lib/wyy-vue.esm.js"
 // (a b)
 // c (a b)
 // i = 0, e1 = -1, e2 = 0
-// const prevChildren = [h("p", { key: "A" }, "A"), h("p", { key: "B" }, "B")];
-// const nextChildren = [
-//   h("p", { key: "C" }, "C"),
-//   h("p", { key: "A" }, "A"),
-//   h("p", { key: "B" }, "B"),
-// ];
+const prevChildren = [h("p", { key: "A" }, "A"), h("p", { key: "B" }, "B")];
+const nextChildren = [
+  h("p", { key: "D" }, "D"),
+  h("p", { key: "C" }, "C"),
+  h("p", { key: "A" }, "A"),
+  h("p", { key: "B" }, "B"),
+]
 
 // 4. 老的比新的长
 //     删除老的
@@ -206,19 +207,19 @@ import { ref, h } from "../../lib/wyy-vue.esm.js"
 // ];
 
 // fix c 节点应该是 move 而不是删除之后重新创建的
-const prevChildren = [
-  h("p", { key: "A" }, "A"),
-  h("p", {}, "C"),
-  h("p", { key: "B" }, "B"),
-  h("p", { key: "D" }, "D"),
-]
+// const prevChildren = [
+//   h("p", { key: "A" }, "A"),
+//   h("p", {}, "C"),
+//   h("p", { key: "B" }, "B"),
+//   h("p", { key: "D" }, "D"),
+// ]
 
-const nextChildren = [
-  h("p", { key: "A" }, "A"),
-  h("p", { key: "B" }, "B"),
-  h("p", {}, "C"),
-  h("p", { key: "D" }, "D"),
-]
+// const nextChildren = [
+//   h("p", { key: "A" }, "A"),
+//   h("p", { key: "B" }, "B"),
+//   h("p", {}, "C"),
+//   h("p", { key: "D" }, "D"),
+// ]
 
 export default {
   name: "ArrayToArray",
