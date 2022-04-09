@@ -86,19 +86,19 @@ export function createRenderer(options) {
   }
 
   function patchChildren(n1: any, n2: any, container: any, parentComponent: any, anchor) {
-    const { shapeFlag: preShapeFlag } = n1
+    const { shapeFlag: prevShapeFlag } = n1
     const { shapeFlag: curShapeFlag } = n2
 
     if (curShapeFlag & ShapeFlags.TEXT_CHILDREN) {
       // unmount 如果是Array to Text
-      if (preShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
+      if (prevShapeFlag & ShapeFlags.ARRAY_CHILDREN) {
         unmountChildren(n1.children)
       }
       if (n1.children !== n2.children) {
         hostSetElementText(container, n2.children)
       }
     } else {
-      if (preShapeFlag & ShapeFlags.TEXT_CHILDREN) {
+      if (prevShapeFlag & ShapeFlags.TEXT_CHILDREN) {
         // 清空之前的文本
         hostSetElementText(container, "")
         // mount 新的
@@ -115,7 +115,7 @@ export function createRenderer(options) {
     c2: any,
     container: any,
     parentComponent: any,
-    anchor
+    anchor: any
   ) {
     let i = 0
     // end
@@ -126,6 +126,7 @@ export function createRenderer(options) {
     while (i <= e1 && i <= e2) {
       const n1 = c1[i]
       const n2 = c2[i]
+      // 如果在这一层是相同的，送入patch继续递归
       if (isSameVNodeType(n1, n2)) {
         patch(n1, n2, container, parentComponent, anchor)
       } else {
@@ -149,18 +150,58 @@ export function createRenderer(options) {
       e2--
     }
 
-    // 简单情况下，cur是pre的一部分，或pre是cur的一部分
-    // cur的某侧比pre长，直接mount新的来扩展该侧
+    // 简单情况下，cur是prev的一部分，或prev是cur的一部分
     if (i > e1 && i <= e2) {
+      // cur的某侧比prev长，直接mount新的来扩展该侧
       // 通过anchor决定左侧还是右侧
       const anchor = e1 < 0 ? c2[e2 + 1].el : null
-      for (let tmp = i; tmp <= e2; tmp++) {
-        patch(null, c2[tmp], container, parentComponent, anchor)
+      for (let idx = i; idx <= e2; idx++) {
+        patch(null, c2[idx], container, parentComponent, anchor)
       }
     } else if (i > e2) {
-      // cur的某侧比pre短，删除pre来缩短
-      for (let tmp = i; tmp <= e1; tmp++) {
-        hostRemove(c1[tmp].el)
+      // cur的某侧比prev短，删除prev来缩短
+      for (let idx = i; idx <= e1; idx++) {
+        hostRemove(c1[idx].el)
+      }
+    } else {
+      // 两边一样，中间不同
+      const keyToNewIdx = new Map()
+      // curChildren 的 key : idx
+      for (let idx = i; idx <= e2; idx++) {
+        const curChild = c2[idx]
+        keyToNewIdx.set(curChild.key, idx)
+      }
+      // i 到 e2 之间的节点，也就是cur要用来比较的节点
+      const toBePatched = e2 - i + 1
+      let patched = 0
+      // 为prev找对应的cur
+      for (let idx = i; idx <= e1; idx++) {
+        const prevChild = c1[idx]
+
+        // cur全找到对应的prev了， 剩下的都要remove
+        if (patched >= toBePatched) {
+          hostRemove(prevChild.el)
+        }
+        
+        let newIdx
+        if (prevChild.key) {
+          newIdx = keyToNewIdx.get(prevChild.key)
+          patched++
+        } else {
+          for (let curIdx = i; curIdx <= e2; curIdx++) {
+            if (isSameVNodeType(c2[curIdx], prevChild)) {
+              newIdx = curIdx
+              patched++
+              break
+            }
+          }
+        }
+        // 找不到就删除，找到了进一步patch
+        if (newIdx === undefined) {
+          hostRemove(prevChild.el)
+        } else {
+          patch(prevChild, c2[newIdx], container, parentComponent, anchor)
+        }
       }
     }
   }
