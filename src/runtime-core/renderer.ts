@@ -71,7 +71,7 @@ export function createRenderer(options) {
   }
 
   function patchElement(n1: any, n2: any, parentComponent: any, anchor) {
-    console.log(n1, n2)
+    // console.log(n1, n2)
 
     // n1经历了mountElement 而n2还没有，所以只能从n1读dom
     const el = (n2.el = n1.el)
@@ -115,7 +115,7 @@ export function createRenderer(options) {
     c2: any,
     container: any,
     parentComponent: any,
-    anchor: any
+    parentAnchor: any
   ) {
     let i = 0
     // end
@@ -128,7 +128,7 @@ export function createRenderer(options) {
       const n2 = c2[i]
       // 如果在这一层是相同的，送入patch继续递归
       if (isSameVNodeType(n1, n2)) {
-        patch(n1, n2, container, parentComponent, anchor)
+        patch(n1, n2, container, parentComponent, parentAnchor)
       } else {
         // move i to the first item that is different
         break
@@ -141,7 +141,7 @@ export function createRenderer(options) {
       const n1 = c1[e1]
       const n2 = c2[e2]
       if (isSameVNodeType(n1, n2)) {
-        patch(n1, n2, container, parentComponent, anchor)
+        patch(n1, n2, container, parentComponent, parentAnchor)
       } else {
         // move e1 and e2 respectively to the last items that are different
         break
@@ -154,7 +154,7 @@ export function createRenderer(options) {
     if (i > e1 && i <= e2) {
       // cur的某侧比prev长，直接mount新的来扩展该侧
       // 通过anchor决定左侧还是右侧
-      const anchor = e1 < 0 ? c2[e2 + 1].el : null
+      const anchor = e1 < 0 ? c2[e2 + 1].el : parentAnchor
       for (let idx = i; idx <= e2; idx++) {
         patch(null, c2[idx], container, parentComponent, anchor)
       }
@@ -165,15 +165,23 @@ export function createRenderer(options) {
       }
     } else {
       // 两边一样，中间不同
-      const keyToNewIdx = new Map()
+      // i 到 e2 之间的节点，也就是cur要用来比较的节点
+      const toBePatched = e2 - i + 1
+      // 用于减少循环内的判断
+      let patched = 0
+      // 一些映射
+      const keyToCurIdx = new Map()
+      const curIdxToPrevIdx = new Array(toBePatched).fill(0)
+      // 判断是否需要移动
+      let moved = false
+      let maxNewIdx = -1
+
       // curChildren 的 key : idx
       for (let idx = i; idx <= e2; idx++) {
         const curChild = c2[idx]
-        keyToNewIdx.set(curChild.key, idx)
+        keyToCurIdx.set(curChild.key, idx)
       }
-      // i 到 e2 之间的节点，也就是cur要用来比较的节点
-      const toBePatched = e2 - i + 1
-      let patched = 0
+
       // 为prev找对应的cur
       for (let idx = i; idx <= e1; idx++) {
         const prevChild = c1[idx]
@@ -181,26 +189,59 @@ export function createRenderer(options) {
         // cur全找到对应的prev了， 剩下的都要remove
         if (patched >= toBePatched) {
           hostRemove(prevChild.el)
+          continue
         }
-        
+
         let newIdx
         if (prevChild.key) {
-          newIdx = keyToNewIdx.get(prevChild.key)
-          patched++
+          newIdx = keyToCurIdx.get(prevChild.key)
         } else {
           for (let curIdx = i; curIdx <= e2; curIdx++) {
             if (isSameVNodeType(c2[curIdx], prevChild)) {
               newIdx = curIdx
-              patched++
               break
             }
           }
         }
         // 找不到就删除，找到了进一步patch
         if (newIdx === undefined) {
+          console.log("remove " + prevChild.props.key)
           hostRemove(prevChild.el)
         } else {
-          patch(prevChild, c2[newIdx], container, parentComponent, anchor)
+          maxNewIdx = newIdx > maxNewIdx ? newIdx : (moved = true)
+
+          // -i是让curIdx待定的部分从0开始，+1是为了让prevIdx从1开始, 0代表没找到
+          curIdxToPrevIdx[newIdx - i] = idx + 1
+          patch(prevChild, c2[newIdx], container, parentComponent, parentAnchor)
+          patched++
+        }
+      }
+
+      // NOTE: 利用最长增长子序列减少插入次数，即该序列中的位置不变，其他元素移动
+      // 这里的逻辑在于：curIdxToPrevIdx的序号是curIdx, value是prevIdx
+      // 利用getSequence求出prevIdx的最长增长子序列，但输出的是序号，也就是不需要移动的元素的curIdx
+      const increasingNewIdxSequence = moved ? getSequence(curIdxToPrevIdx) : []
+      let j = increasingNewIdxSequence.length - 1
+      // console.log(curIdxToPrevIdx)
+      // console.log(increasingNewIdxSequence)
+
+      for (let idx = toBePatched - 1; idx >= 0; idx--) {
+        const curIdx = idx + i
+        const curChild = c2[curIdx]
+        // 因为从后往前，后面优先创建，锚点就是下一个点
+        const anchor = curIdx + 1 < c2.length ? c2[curIdx + 1].el : parentAnchor
+
+        // ===0说明idx这个节点在prev里没找到，需要创建
+        if (curIdxToPrevIdx[idx] === 0) {
+          console.log("create " + curChild.props.key)
+          patch(null, curChild, container, parentComponent, anchor)
+        } else if (moved) {
+          if (j < 0 || idx !== increasingNewIdxSequence[j]) {
+            console.log("move " + curChild.props.key)
+            hostInsert(curChild.el, container, anchor)
+          } else {
+            j--
+          }
         }
       }
     }
@@ -318,4 +359,46 @@ export function createRenderer(options) {
   return {
     createApp: createAppAPI(render),
   }
+}
+
+// https://en.wikipedia.org/wiki/Longest_increasing_subsequence
+function getSequence(arr: number[]): number[] {
+  const p = arr.slice()
+  const result = [0]
+  let i, j, u, v, c
+  const len = arr.length
+  for (i = 0; i < len; i++) {
+    const arrI = arr[i]
+    if (arrI !== 0) {
+      j = result[result.length - 1]
+      if (arr[j] < arrI) {
+        p[i] = j
+        result.push(i)
+        continue
+      }
+      u = 0
+      v = result.length - 1
+      while (u < v) {
+        c = (u + v) >> 1
+        if (arr[result[c]] < arrI) {
+          u = c + 1
+        } else {
+          v = c
+        }
+      }
+      if (arrI < arr[result[u]]) {
+        if (u > 0) {
+          p[i] = result[u - 1]
+        }
+        result[u] = i
+      }
+    }
+  }
+  u = result.length
+  v = result[u - 1]
+  while (u-- > 0) {
+    result[u] = v
+    v = p[v]
+  }
+  return result
 }
