@@ -1,5 +1,6 @@
 import { effect, isObject } from "../reactivity"
 import { createComponentInstance, setupComponent } from "./component"
+import { shouldUpdateComponent } from "./componentRenderUtils"
 import { createAppAPI } from "./createApp"
 import { ShapeFlags } from "./ShapeFlags"
 import { Fragment, Text } from "./vnode"
@@ -319,11 +320,31 @@ export function createRenderer(options) {
     parentComponent: any,
     anchor
   ) {
-    mountComponent(n2, container, parentComponent, anchor)
+    if (!n1) {
+      mountComponent(n2, container, parentComponent, anchor)
+    } else {
+      updateComponent(n1, n2)
+    }
+  }
+
+  function updateComponent(n1: any, n2: any) {
+    // 组件更新其实就是组件的props更新，然后继续patch下去看element要不要更新
+    const instance = (n2.component = n1.component)
+    if (shouldUpdateComponent(n1, n2)) {
+      instance.next = n2
+      instance.update()
+    } else {
+      // NOTE:如果不需要更新，则把需要信息从n1上copy到n2上
+      // 不copy报错的情况，第一次跳过它，第二次改变它的props
+      // 因为此时n2已经render完并挂载在instance的subtree上，之后再改变用来做比较的prev就是它
+      // 要copy过来的信息包括component和el
+      n2.el = n1.el
+      instance.vnode = n2
+    }
   }
 
   function mountComponent(vnode: any, container: any, parentComponent: any, anchor) {
-    const instance = createComponentInstance(vnode, parentComponent)
+    const instance = (vnode.component = createComponentInstance(vnode, parentComponent))
 
     setupComponent(instance)
     setupRenderEffect(instance, container, anchor)
@@ -331,7 +352,8 @@ export function createRenderer(options) {
 
   function setupRenderEffect(instance, container, anchor) {
     // 用effect包裹, 在响应对象发生改变后，会再次触发render
-    effect(() => {
+    // instance.update就是runner
+    instance.update = effect(() => {
       if (!instance.isMounted) {
         const { proxy } = instance
         // NOTE: setup注册的东西绑定在实例上, 都通过proxy获取
@@ -348,6 +370,14 @@ export function createRenderer(options) {
 
         instance.isMounted = true
       } else {
+        // 组件的n2 和 n1
+        const { next, vnode } = instance
+        // 更新组件然后重新render
+        if (next) {
+          next.el = vnode.el
+          updateComponentPreRender(instance, next)
+        }
+
         const { proxy } = instance
         const prevTree = instance.subTree
         const subTree = (instance.subTree = instance.render.call(proxy))
@@ -359,6 +389,12 @@ export function createRenderer(options) {
   return {
     createApp: createAppAPI(render),
   }
+}
+
+function updateComponentPreRender(instance: any, nextVNode: any) {
+  instance.vnode = nextVNode
+  instance.next = null
+  instance.props = nextVNode.props
 }
 
 // https://en.wikipedia.org/wiki/Longest_increasing_subsequence

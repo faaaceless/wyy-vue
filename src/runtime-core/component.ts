@@ -18,7 +18,9 @@ export function createComponentInstance(vnode: any, parent: any) {
     slots: {},
     provides: {},
     isMounted: false,
+    next: null,
     emit: (event) => {},
+    update: () => {},
   }
 
   // instance直接作为bind的参数，无需另外传入
