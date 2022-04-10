@@ -2,6 +2,7 @@ import { effect, isObject } from "../reactivity"
 import { createComponentInstance, setupComponent } from "./component"
 import { shouldUpdateComponent } from "./componentRenderUtils"
 import { createAppAPI } from "./createApp"
+import { queueJobs } from "./scheduler"
 import { ShapeFlags } from "./ShapeFlags"
 import { Fragment, Text } from "./vnode"
 
@@ -353,37 +354,45 @@ export function createRenderer(options) {
   function setupRenderEffect(instance, container, anchor) {
     // 用effect包裹, 在响应对象发生改变后，会再次触发render
     // instance.update就是runner
-    instance.update = effect(() => {
-      if (!instance.isMounted) {
-        const { proxy } = instance
-        // NOTE: setup注册的东西绑定在实例上, 都通过proxy获取
-        // 用call把render的this绑定到proxy上,
-        // 之后就能在render里用this来访问到instance的setup结果
-        const subTree = (instance.subTree = instance.render.call(proxy))
-        // subTree 就是组件的虚拟dom树
-        patch(null, subTree, container, instance, anchor)
+    instance.update = effect(
+      () => {
+        if (!instance.isMounted) {
+          const { proxy } = instance
+          // NOTE: setup注册的东西绑定在实例上, 都通过proxy获取
+          // 用call把render的this绑定到proxy上,
+          // 之后就能在render里用this来访问到instance的setup结果
+          const subTree = (instance.subTree = instance.render.call(proxy))
+          // subTree 就是组件的虚拟dom树
+          patch(null, subTree, container, instance, anchor)
 
-        // NOTE: patch先进到mountElement, el把dom挂到自己的vnode上,
-        // 等children全部render完了, 才能把组件实例的el绑定到根dom元素
-        // 这样就实现 $el 接口, 在proxy设置
-        instance.vnode.el = subTree.el
+          // NOTE: patch先进到mountElement, el把dom挂到自己的vnode上,
+          // 等children全部render完了, 才能把组件实例的el绑定到根dom元素
+          // 这样就实现 $el 接口, 在proxy设置
+          instance.vnode.el = subTree.el
 
-        instance.isMounted = true
-      } else {
-        // 组件的n2 和 n1
-        const { next, vnode } = instance
-        // 更新组件然后重新render
-        if (next) {
-          next.el = vnode.el
-          updateComponentPreRender(instance, next)
+          instance.isMounted = true
+        } else {
+          // 组件的n2 和 n1
+          const { next, vnode } = instance
+          // 更新组件然后重新render
+          if (next) {
+            next.el = vnode.el
+            updateComponentPreRender(instance, next)
+          }
+
+          const { proxy } = instance
+          const prevTree = instance.subTree
+          const subTree = (instance.subTree = instance.render.call(proxy))
+          patch(prevTree, subTree, container, instance, anchor)
         }
-
-        const { proxy } = instance
-        const prevTree = instance.subTree
-        const subTree = (instance.subTree = instance.render.call(proxy))
-        patch(prevTree, subTree, container, instance, anchor)
+      },
+      {
+        scheduler() {
+          // runner加入queue, 组件异步更新, runner是不会再进schedule的
+          queueJobs(instance.update)
+        },
       }
-    })
+    )
   }
 
   return {
